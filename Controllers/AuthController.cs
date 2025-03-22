@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AspDotNetGoogleAuthExample.Controllers;
 
@@ -10,28 +12,22 @@ public class AuthController : ControllerBase
     [HttpGet("google-login")]
     public IActionResult GoogleLogin()
     {
-        var properties = new AuthenticationProperties { RedirectUri = Url.Action("GoogleResponse") };
-        return Challenge(properties, "Google");
+        var redirectUrl = Url.Action(nameof(GoogleResponse), "Auth");
+        var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
 
     [HttpGet("google-response")]
     public async Task<IActionResult> GoogleResponse()
     {
-        var result = await HttpContext.AuthenticateAsync("Google");
+        var authenticateResult = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
 
-        if (!result.Succeeded)
-            return BadRequest("Error authenticating with Google.");
+        if (!authenticateResult.Succeeded)
+            return BadRequest("Google authentication failed.");
 
-        var claims = result.Principal.Identities
-            .FirstOrDefault()?.Claims
-            .Select(claim => new
-            {
-                claim.Issuer,
-                claim.OriginalIssuer,
-                claim.Type,
-                claim.Value
-            });
+        var claims = authenticateResult.Principal.Identities.FirstOrDefault()?.Claims;
+        var email = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
 
-        return Ok(claims);
+        return Ok(new { Email = email });
     }
 }
