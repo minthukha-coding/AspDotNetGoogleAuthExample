@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging; // Add logging
 
 namespace AspDotNetGoogleAuthExample.Controllers;
 
@@ -10,6 +10,13 @@ namespace AspDotNetGoogleAuthExample.Controllers;
 [ApiController]
 public class AuthController : ControllerBase
 {
+    private readonly ILogger<AuthController> _logger;
+
+    public AuthController(ILogger<AuthController> logger)
+    {
+        _logger = logger;
+    }
+
     [HttpGet("google-login")]
     public IActionResult GoogleLogin()
     {
@@ -21,9 +28,9 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            _logger.LogError(ex, "Error during Google login initiation.");
+            return StatusCode(500, "Internal server error."); // Return 500
         }
-        return Ok();
     }
 
     [HttpGet("google-response")]
@@ -33,18 +40,29 @@ public class AuthController : ControllerBase
         {
             var authenticateResult = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
 
+            _logger.LogInformation($"Authentication succeeded: {authenticateResult.Succeeded}");
+            _logger.LogInformation($"Authentication properties: {authenticateResult.Properties}");
+
             if (!authenticateResult.Succeeded)
+            {
+                _logger.LogError("Google authentication failed.");
                 return BadRequest("Google authentication failed.");
+            }
 
             var claims = authenticateResult.Principal.Identities.FirstOrDefault()?.Claims;
             var email = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
 
+            if (email == null)
+            {
+                _logger.LogError("Email claim not found from google response");
+                return BadRequest("Email not found");
+            }
             return Ok(new { Email = email });
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            _logger.LogError(ex, "Error during Google response processing.");
+            return StatusCode(500, "Internal server error.");
         }
-        return Ok();
     }
 }

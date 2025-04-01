@@ -7,38 +7,37 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 try
 {
     builder.Services.AddAuthentication(options =>
-{
-options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-})
-.AddJwtBearer() // If you're using JWT for your API auth
-.AddGoogle(options =>
-{
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-});
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer()
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+        options.CallbackPath = "/api/auth/google-response";
+    });
 
     builder.Services.AddCors(options =>
     {
         options.AddPolicy(name: MyAllowSpecificOrigins,
-                          policy =>
-                          {
-                              policy.AllowAnyHeader();
-                              policy.AllowAnyMethod();
-                              policy.AllowAnyOrigin();
-                          });
+            policy =>
+            {
+                // In production, replace AllowAnyOrigin with specific origins.
+                policy.AllowAnyHeader();
+                policy.AllowAnyMethod();
+                policy.AllowAnyOrigin(); // Development only!
+            });
     });
 
-    // Add services to the container.
-
     builder.Services.AddControllers();
-    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
+    builder.Services.AddLogging(); //Add logging
 
     var app = builder.Build();
 
-    // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -46,18 +45,14 @@ options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
     }
 
     app.UseHttpsRedirection();
-
     app.UseAuthentication();
     app.UseAuthorization();
-
     app.UseCors(MyAllowSpecificOrigins);
-
     app.MapControllers();
-
     app.Run();
-
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex.Message);  
+    var logger = WebApplication.CreateBuilder().Build().Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "An error occurred during application startup.");
 }
